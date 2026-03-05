@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { canAccessBoard } from "@/lib/access";
 import { resolvePermissionContext } from "@/lib/permissions";
+import { listCandidates } from "@/lib/recruitment";
 import { BoardClient } from "./board-client";
 
 export default async function HomePage() {
@@ -20,11 +21,14 @@ export default async function HomePage() {
     );
   }
 
+  const initialCandidates = await listCandidates();
+
   return (
     <BoardClient
       discordUserId={permission.discordUserId}
       canVote={permission.canVote}
       canModerate={permission.canModerate}
+      initialCandidates={initialCandidates}
     />
   );
 }

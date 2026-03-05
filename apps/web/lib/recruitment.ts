@@ -443,3 +443,12 @@ export async function restartVoting(
     client.release();
   }
 }
+
+export async function deleteCandidate(candidateId: string): Promise<void> {
+  await ensureSchema();
+
+  const result = await pool.query(`DELETE FROM candidates WHERE id = $1`, [candidateId]);
+  if ((result.rowCount ?? 0) === 0) {
+    throw new Error("Candidate not found.");
+  }
+}

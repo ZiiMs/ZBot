@@ -137,6 +137,11 @@ main {
   overflow-wrap: anywhere;
 }
 
+.markdown p,
+.markdown li {
+  white-space: pre-wrap;
+}
+
 .vote-row {
   display: flex;
   align-items: center;
@@ -172,6 +177,11 @@ main {
 .btn-accent {
   border-color: color-mix(in srgb, var(--accent) 40%, #94a3b8);
   color: #92400e;
+}
+
+.btn-delete {
+  border-color: color-mix(in srgb, #991b1b 35%, #94a3b8);
+  color: #991b1b;
 }
 
 .vote-pill {

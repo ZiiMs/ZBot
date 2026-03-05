@@ -17,6 +17,24 @@ type Candidate = {
   noVotes: number;
 };
 
+function preserveMarkdownLineBreaks(markdown: string): string {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const transformed: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const nextLine = lines[i + 1];
+    const shouldForceBreak =
+      line.trim().length > 0 &&
+      nextLine !== undefined &&
+      nextLine.trim().length > 0;
+
+    transformed.push(shouldForceBreak ? `${line}  ` : line);
+  }
+
+  return transformed.join("\n");
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   return date.toLocaleString();
@@ -26,18 +44,22 @@ export function BoardClient({
   discordUserId,
   canVote,
   canModerate,
+  initialCandidates,
 }: {
   discordUserId: string;
   canVote: boolean;
   canModerate: boolean;
+  initialCandidates: Candidate[];
 }) {
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signOutPending, setSignOutPending] = useState(false);
 
-  const refreshCandidates = useCallback(async () => {
-    setError(null);
+  const refreshCandidates = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setError(null);
+    }
 
     const candidateResponse = await fetch("/api/candidates", { cache: "no-store" });
 
@@ -51,9 +73,27 @@ export function BoardClient({
   }, []);
 
   useEffect(() => {
-    refreshCandidates().catch((requestError) => {
+    refreshCandidates({ silent: true }).catch((requestError) => {
       setError(requestError instanceof Error ? requestError.message : "Load failed.");
     });
+  }, [refreshCandidates]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      refreshCandidates({ silent: true }).catch(() => {});
+    }, 10000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshCandidates({ silent: true }).catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [refreshCandidates]);
 
   const castVote = useCallback(
@@ -105,9 +145,40 @@ export function BoardClient({
           throw new Error(payload.error ?? "Unable to restart vote.");
         }
 
-        await refreshCandidates();
+        await refreshCandidates({ silent: true });
       } catch (restartError) {
         setError(restartError instanceof Error ? restartError.message : "Restart failed.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [refreshCandidates]
+  );
+
+  const deleteEntry = useCallback(
+    async (candidateId: string) => {
+      const confirmed = window.confirm("Delete this candidate from the board?");
+      if (!confirmed) {
+        return;
+      }
+
+      setBusyId(candidateId);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/candidates/${candidateId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json()) as { error?: string };
+          throw new Error(payload.error ?? "Unable to delete candidate.");
+        }
+
+        setCandidates((current) => current.filter((candidate) => candidate.id !== candidateId));
+        await refreshCandidates({ silent: true });
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Delete failed.");
       } finally {
         setBusyId(null);
       }
@@ -164,6 +235,7 @@ export function BoardClient({
             canModerate={canModerate}
             onVote={castVote}
             onRestart={restartVote}
+            onDelete={deleteEntry}
           />
           <Column
             title="Accepted"
@@ -173,6 +245,7 @@ export function BoardClient({
             canModerate={canModerate}
             onVote={castVote}
             onRestart={restartVote}
+            onDelete={deleteEntry}
           />
           <Column
             title="Declined"
@@ -182,6 +255,7 @@ export function BoardClient({
             canModerate={canModerate}
             onVote={castVote}
             onRestart={restartVote}
+            onDelete={deleteEntry}
           />
         </div>
       </section>
@@ -197,6 +271,7 @@ function Column({
   canModerate,
   onVote,
   onRestart,
+  onDelete,
 }: {
   title: string;
   items: Candidate[];
@@ -205,6 +280,7 @@ function Column({
   canModerate: boolean;
   onVote: (candidateId: string, vote: "check" | "x") => void;
   onRestart: (candidateId: string) => void;
+  onDelete: (candidateId: string) => void;
 }) {
   return (
     <section className="column">
@@ -227,7 +303,7 @@ function Column({
               </div>
 
               <div className="markdown">
-                <ReactMarkdown>{candidate.sourceMarkdown}</ReactMarkdown>
+                <ReactMarkdown>{preserveMarkdownLineBreaks(candidate.sourceMarkdown)}</ReactMarkdown>
               </div>
 
               <div className="vote-row">
@@ -256,6 +332,16 @@ function Column({
                 {canModerate ? (
                   <button className="btn" type="button" onClick={() => onRestart(candidate.id)} disabled={isBusy}>
                     Restart Re-vote
+                  </button>
+                ) : null}
+                {canModerate ? (
+                  <button
+                    className="btn btn-delete"
+                    type="button"
+                    onClick={() => onDelete(candidate.id)}
+                    disabled={isBusy}
+                  >
+                    Delete
                   </button>
                 ) : null}
               </div>
