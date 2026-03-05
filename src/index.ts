@@ -2,8 +2,39 @@ import { Client, GatewayIntentBits } from "discord.js";
 import { getConfig } from "./config.js";
 import { buildCharacterEmbed, buildUnavailableEmbed } from "./embed.js";
 import { createLogger } from "./logger.js";
+import { parseMessageInputFromSources } from "./message-parser.js";
 import { fetchCharacterSummary } from "./raiderio.js";
-import { extractRaiderIoLinks, stripRaiderIoLinksFromText } from "./url-parser.js";
+
+function collectTextSourcesForParsing(message: {
+  content: string;
+  embeds: Array<{ description: string | null }>;
+  messageSnapshots: Map<string, { content: string; embeds: Array<{ description: string | null }> }>;
+}): string[] {
+  const sources: string[] = [];
+
+  if (message.content?.trim()) {
+    sources.push(message.content);
+  }
+
+  for (const embed of message.embeds) {
+    if (embed.description?.trim()) {
+      sources.push(embed.description);
+    }
+  }
+
+  for (const snapshot of message.messageSnapshots.values()) {
+    if (snapshot.content?.trim()) {
+      sources.push(snapshot.content);
+    }
+    for (const embed of snapshot.embeds) {
+      if (embed.description?.trim()) {
+        sources.push(embed.description);
+      }
+    }
+  }
+
+  return sources;
+}
 
 async function main(): Promise<void> {
   const config = getConfig();
@@ -21,14 +52,14 @@ async function main(): Promise<void> {
     if (message.author.bot) return;
     if (message.channelId !== config.discordTargetChannelId) return;
 
-    const links = extractRaiderIoLinks(message.content);
+    const parsedInput = parseMessageInputFromSources(collectTextSourcesForParsing(message));
+    const { links, outboundText } = parsedInput;
     if (links.length === 0) return;
 
     logger.info(
       `Processing ${links.length} Raider.IO link(s) from message ${message.id} in channel ${message.channelId}`
     );
 
-    const outboundText = stripRaiderIoLinksFromText(message.content, links);
     const embeds = [];
 
     for (const link of links) {

@@ -6,6 +6,7 @@ Discord bot that watches one channel for Raider.IO character links and reposts f
 
 - Watches only one configured Discord channel
 - Finds one or more Raider.IO character links in a message
+- Parses normal and forwarded message text (including forwarded snapshots)
 - Creates one embed per character link
 - Posts non-link message text as normal bot message content above the embed(s)
 - Splits output into two sections per category: `Current` and `Previous (Last 3)`
