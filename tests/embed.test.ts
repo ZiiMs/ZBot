@@ -74,10 +74,10 @@ describe("buildCharacterEmbed", () => {
 
     expect(raidHeader?.value).toBe("\u200B");
     expect(currentRaid?.value).toContain("Current Tier: N/A");
-    expect(previousRaid?.value).toContain("Previous 2 (Previous Tier 2): N 8/8 | H 6/8 | M 2/8");
+    expect(previousRaid?.value).toContain("Previous Tier 2: N 8/8 | H 6/8 | M 2/8");
     expect(mplusHeader?.value).toBe("\u200B");
     expect(currentMplus?.value).toBe("Season Current: N/A");
-    expect(previousMplus?.value).toContain("Previous 1 (Season Prev 1): 2400.6");
+    expect(previousMplus?.value).toContain("Season Prev 1: 2400.6");
   });
 });
 

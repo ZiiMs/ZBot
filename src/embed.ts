@@ -21,12 +21,10 @@ function buildPreviousRaidLines(character: CharacterSummary): string {
   for (let i = 1; i <= 3; i++) {
     const tier = character.raidTiers[i];
     if (!tier) {
-      lines.push(`Previous ${i}: N/A`);
+      lines.push("N/A");
       continue;
     }
-    lines.push(
-      formatRaidTierLine(`Previous ${i} (${tier.label})`, tier.hasExperience, tier.normal, tier.heroic, tier.mythic)
-    );
+    lines.push(formatRaidTierLine(tier.label, tier.hasExperience, tier.normal, tier.heroic, tier.mythic));
   }
   return lines.join("\n");
 }
@@ -36,10 +34,10 @@ function buildPreviousMplusLines(character: CharacterSummary): string {
   for (let i = 1; i <= 3; i++) {
     const season = character.mythicPlusSeasons[i];
     if (!season) {
-      lines.push(`Previous ${i}: N/A`);
+      lines.push("N/A");
       continue;
     }
-    lines.push(`Previous ${i} (${season.label}): ${formatScore(season.score)}`);
+    lines.push(`${season.label}: ${formatScore(season.score)}`);
   }
   return lines.join("\n");
 }
@@ -128,7 +126,7 @@ export function buildUnavailableEmbed(link: RaiderIoLink, reason: string): Embed
       },
       {
         name: "Previous (Last 3)",
-        value: "Previous 1: N/A\nPrevious 2: N/A\nPrevious 3: N/A",
+        value: "N/A\nN/A\nN/A",
         inline: true,
       },
       {
@@ -143,7 +141,7 @@ export function buildUnavailableEmbed(link: RaiderIoLink, reason: string): Embed
       },
       {
         name: "Previous (Last 3)",
-        value: "Previous 1: N/A\nPrevious 2: N/A\nPrevious 3: N/A",
+        value: "N/A\nN/A\nN/A",
         inline: true,
       },
       {
