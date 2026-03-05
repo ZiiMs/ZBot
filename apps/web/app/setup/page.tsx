@@ -79,6 +79,12 @@ export default async function SetupPage() {
                 >
                   Configure Auto React Roles
                 </Link>
+                <Link
+                  className={cn(buttonVariants({ variant: "outline" }), "rounded-none")}
+                  href={`/guilds/${guild.id}/welcome`}
+                >
+                  Configure Welcome Messages
+                </Link>
               </CardContent>
             </Card>
           );

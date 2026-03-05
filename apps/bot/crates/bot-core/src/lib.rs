@@ -15,5 +15,6 @@ pub use interaction::{
 pub use metrics::Metrics;
 pub use services::{
     Clock, JobLockRepository, Reminder, ReminderRepository, RolePanelItem, RolePanelMapping,
-    RolePanelRepository, RolePanelSyncTarget,
+    RolePanelRepository, RolePanelSyncTarget, WelcomeConfig, WelcomePreviewResult,
+    WelcomeRenderContext, WelcomeRepository, render_welcome_template,
 };

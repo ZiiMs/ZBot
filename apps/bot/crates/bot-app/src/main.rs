@@ -8,7 +8,7 @@ use std::time::Instant;
 use anyhow::Context as AnyhowContext;
 use bot_core::{
     AppContext, BotError, Config, InteractionEvent, InteractionOutcome, RouteKey, ServiceRegistry,
-    ShardMeta,
+    ShardMeta, WelcomeRenderContext, render_welcome_template,
 };
 use bot_features::default_modules;
 use bot_features::router::InteractionRouter;
@@ -16,13 +16,14 @@ use bot_infra::http::{run_http_server, HealthState};
 use bot_infra::metrics::MetricsRegistry;
 use bot_infra::repositories::{
     PostgresJobLockRepository, PostgresReminderRepository, PostgresRolePanelRepository,
+    PostgresWelcomeRepository,
 };
 use bot_infra::scheduler::Scheduler;
 use serenity::all::{
     ChannelId, Command, CommandInteraction, CommandType, ComponentInteraction,
     ComponentInteractionDataKind, Context, CreateActionRow, CreateCommand, CreateMessage,
     CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
-    Interaction, ModalInteraction, ReactionType, Ready, RoleId,
+    Interaction, Member, ModalInteraction, ReactionType, Ready, RoleId,
 };
 use serenity::async_trait;
 use serenity::Client;
@@ -111,6 +112,17 @@ impl EventHandler for Handler {
             error!(event = "interaction_handle_failed", route = route, error = %err);
         }
     }
+
+    async fn guild_member_addition(&self, ctx: Context, new_member: Member) {
+        if let Err(err) = send_welcome_message(&self.app_ctx, &ctx, &new_member).await {
+            warn!(
+                event = "welcome_send_failed",
+                guild_id = %new_member.guild_id.get(),
+                user_id = %new_member.user.id.get(),
+                error = %err
+            );
+        }
+    }
 }
 
 impl Handler {
@@ -164,11 +176,13 @@ async fn main() -> anyhow::Result<()> {
 
     let reminder_repo = Arc::new(PostgresReminderRepository::new(pool.clone()));
     let job_lock_repo = Arc::new(PostgresJobLockRepository::new(pool.clone()));
-    let role_panel_repo = Arc::new(PostgresRolePanelRepository::new(pool));
+    let role_panel_repo = Arc::new(PostgresRolePanelRepository::new(pool.clone()));
+    let welcome_repo = Arc::new(PostgresWelcomeRepository::new(pool));
     let services = Arc::new(ServiceRegistry {
         reminder_repo,
         job_lock_repo,
         role_panel_repo,
+        welcome_repo,
     });
 
     let metrics = Arc::new(MetricsRegistry::new().context("failed to init metrics")?);
@@ -197,6 +211,7 @@ async fn main() -> anyhow::Result<()> {
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::GUILD_MESSAGE_REACTIONS
         | GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::DIRECT_MESSAGES;
     let mut client = Client::builder(&config.bot_token, intents)
         .event_handler(handler)
@@ -347,6 +362,53 @@ async fn register_commands(
     Command::set_global_commands(&ctx.http, commands)
         .await
         .context("failed to register commands")?;
+
+    Ok(())
+}
+
+async fn send_welcome_message(
+    app_ctx: &AppContext,
+    ctx: &Context,
+    new_member: &Member,
+) -> Result<(), BotError> {
+    let guild_id = new_member.guild_id.get() as i64;
+    let Some(config) = app_ctx
+        .services
+        .welcome_repo
+        .get_welcome_config(guild_id)
+        .await?
+    else {
+        return Ok(());
+    };
+
+    if !config.enabled {
+        return Ok(());
+    }
+
+    let Some(channel_id) = config.channel_id else {
+        return Ok(());
+    };
+
+    let guild_name = match new_member.guild_id.to_partial_guild(&ctx.http).await {
+        Ok(guild) => guild.name,
+        Err(_) => "this server".to_string(),
+    };
+
+    let display_name = new_member
+        .nick
+        .clone()
+        .unwrap_or_else(|| new_member.user.name.clone());
+    let render_context = WelcomeRenderContext {
+        user: display_name,
+        server: guild_name,
+        mention: format!("<@{}>", new_member.user.id.get()),
+    };
+    let preview = render_welcome_template(&config.template, &render_context);
+
+    ChannelId::new(channel_id as u64)
+        .send_message(&ctx.http, CreateMessage::new().content(preview.content))
+        .await
+        .map_err(|e| BotError::DiscordApi(format!("failed to send welcome message: {e}")))?;
 
     Ok(())
 }

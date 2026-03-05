@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::services::{JobLockRepository, ReminderRepository, RolePanelRepository};
+use crate::services::{JobLockRepository, ReminderRepository, RolePanelRepository, WelcomeRepository};
 use crate::Metrics;
 
 #[derive(Debug, Clone)]
@@ -27,6 +27,7 @@ pub struct ServiceRegistry {
     pub reminder_repo: Arc<dyn ReminderRepository>,
     pub job_lock_repo: Arc<dyn JobLockRepository>,
     pub role_panel_repo: Arc<dyn RolePanelRepository>,
+    pub welcome_repo: Arc<dyn WelcomeRepository>,
 }
 
 #[derive(Clone)]

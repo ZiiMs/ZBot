@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bot_core::{
     BotError, JobLockRepository, Reminder, ReminderRepository, RolePanelItem, RolePanelMapping,
-    RolePanelRepository, RolePanelSyncTarget,
+    RolePanelRepository, RolePanelSyncTarget, WelcomeConfig, WelcomeRepository,
 };
 use chrono::{DateTime, Duration, Utc};
 use sqlx::{Pool, Postgres, Row};
@@ -204,6 +204,51 @@ impl JobLockRepository for PostgresJobLockRepository {
 #[derive(Clone)]
 pub struct PostgresRolePanelRepository {
     pool: Pool<Postgres>,
+}
+
+#[derive(Clone)]
+pub struct PostgresWelcomeRepository {
+    pool: Pool<Postgres>,
+}
+
+impl PostgresWelcomeRepository {
+    pub fn new(pool: Pool<Postgres>) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl WelcomeRepository for PostgresWelcomeRepository {
+    async fn get_welcome_config(&self, guild_id: i64) -> Result<Option<WelcomeConfig>, BotError> {
+        let row = sqlx::query(
+            "SELECT guild_id, enabled, channel_id, template
+             FROM welcome_configs
+             WHERE guild_id = $1",
+        )
+        .bind(guild_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| BotError::Persistence(format!("get welcome config failed: {e}")))?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        Ok(Some(WelcomeConfig {
+            guild_id: row
+                .try_get("guild_id")
+                .map_err(|e| BotError::Persistence(format!("missing guild_id: {e}")))?,
+            enabled: row
+                .try_get("enabled")
+                .map_err(|e| BotError::Persistence(format!("missing enabled: {e}")))?,
+            channel_id: row
+                .try_get("channel_id")
+                .map_err(|e| BotError::Persistence(format!("missing channel_id: {e}")))?,
+            template: row
+                .try_get("template")
+                .map_err(|e| BotError::Persistence(format!("missing template: {e}")))?,
+        }))
+    }
 }
 
 impl PostgresRolePanelRepository {
