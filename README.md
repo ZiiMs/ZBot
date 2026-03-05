@@ -1,20 +1,18 @@
-# ZBot2 Raider.IO Formatter Bot
+# ZBot2 Recruitment + Raider.IO
 
-Discord bot that watches one channel for Raider.IO character links and reposts formatted embeds.
+This repo now contains:
 
-## Features
+- A Discord bot (root package) that:
+  - Keeps Raider.IO link parsing and embed posting
+  - Captures forwarded recruitment text and sends it to the web intake API
+- A web app (`apps/web`) that:
+  - Stores forwarded recruitment posts
+  - Shows `Voting`, `Accepted`, and `Declined` sections
+  - Allows role-gated voting (`Checkmark` / `X`)
+  - Auto-finalizes (`3 checks => accepted`, `1 X => declined`)
+  - Supports moderator restart/re-vote per candidate
 
-- Watches only one configured Discord channel
-- Finds one or more Raider.IO character links in a message
-- Parses normal and forwarded message text (including forwarded snapshots)
-- Creates one embed per character link
-- Posts non-link message text as normal bot message content above the embed(s)
-- Splits output into two sections per category: `Current` and `Previous (Last 3)`
-- Shows `N/A` for raid tiers with zero/no progression
-- Shows `Current` + `Previous 1/2/3` Mythic+ seasons (`N/A` when unavailable)
-- Deletes original message after repost (if permissions allow)
-
-## Setup
+## Root Bot Setup
 
 1. Install dependencies:
 
@@ -22,36 +20,60 @@ Discord bot that watches one channel for Raider.IO character links and reposts f
 bun install
 ```
 
-2. Copy `.env.example` to `.env` and set values:
+2. Copy `.env.example` to `.env` and fill:
 
 - `DISCORD_BOT_TOKEN`
 - `DISCORD_TARGET_CHANNEL_ID`
+- `DISCORD_GUILD_ID`
 - `RAIDERIO_ACCESS_KEY` (optional)
-- `LOG_LEVEL` (optional, default `info`)
+- `RECRUITMENT_INTAKE_URL` (for example `http://localhost:3000/api/intake/discord-forward`)
+- `RECRUITMENT_API_TOKEN` (must match web app)
+- `LOG_LEVEL` (optional)
 
-3. Run locally:
+3. Run bot:
 
 ```bash
 bun run dev
 ```
 
-4. In Discord Developer Portal, enable required intent:
+## Web App Setup (`apps/web`)
 
-- Go to `Applications -> <your app> -> Bot -> Privileged Gateway Intents`
-- Enable `Message Content Intent`
-- Save changes, then restart the bot
+1. Install dependencies from repo root:
+
+```bash
+npm install
+```
+
+2. Copy `apps/web/.env.example` to `apps/web/.env.local` and fill values:
+
+- `DATABASE_URL`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `DISCORD_CLIENT_ID`
+- `DISCORD_CLIENT_SECRET`
+- `DISCORD_GUILD_ID`
+- `DISCORD_BOT_TOKEN`
+- `RECRUITMENT_API_TOKEN`
+- `VOTER_ROLE_IDS` (comma-separated)
+- `MODERATOR_ROLE_IDS` (comma-separated)
+
+3. Run web app:
+
+```bash
+npm run dev:web
+```
 
 ## Scripts
 
-- `bun run dev` - run in watch mode
-- `bun run start` - run once
-- `bun run typecheck` - TypeScript typecheck
-- `bun run test` - test suite
+- `bun run dev` - bot watch mode
+- `bun run start` - bot run once
+- `npm run dev:web` - web app dev server
+- `npm run start:web` - web app production start
+- `bun run typecheck` - bot typecheck
+- `bun run test` - bot tests
 
-## Railway
+## Notes
 
-- Runtime: Bun (or Nixpacks auto-detect with Bun lockfile)
-- Start command: `bun run start`
-- Add environment variables from `.env.example`
-- Ensure bot has `Send Messages`, `Embed Links`, and `Manage Messages` in the target channel
-- Ensure `Message Content Intent` is enabled in the Discord app settings
+- Web app schema is auto-created on first API call and SQL is mirrored in `apps/web/sql/init.sql`.
+- Bot no longer reposts plain text from messages.
+- Bot no longer deletes source Discord messages, preserving source message links.

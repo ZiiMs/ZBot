@@ -4,6 +4,7 @@ import { buildCharacterEmbed, buildUnavailableEmbed } from "./embed.js";
 import { createLogger } from "./logger.js";
 import { parseMessageInputFromSources } from "./message-parser.js";
 import { fetchCharacterSummary } from "./raiderio.js";
+import { buildRecruitmentIntakePayload, sendRecruitmentIntake } from "./recruitment-intake.js";
 
 function collectTextSourcesForParsing(message: {
   content: string;
@@ -52,8 +53,20 @@ async function main(): Promise<void> {
     if (message.author.bot) return;
     if (message.channelId !== config.discordTargetChannelId) return;
 
+    const intakePayload = buildRecruitmentIntakePayload(message);
+    if (intakePayload && intakePayload.guildId === config.discordGuildId) {
+      try {
+        await sendRecruitmentIntake(config.recruitmentIntakeUrl, config.recruitmentApiToken, intakePayload);
+      } catch (error) {
+        logger.warn("Failed to send recruitment intake payload", {
+          messageId: message.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     const parsedInput = parseMessageInputFromSources(collectTextSourcesForParsing(message));
-    const { links, outboundText } = parsedInput;
+    const { links } = parsedInput;
     if (links.length === 0) return;
 
     logger.info(
@@ -90,18 +103,8 @@ async function main(): Promise<void> {
 
     if (embeds.length > 0) {
       await message.channel.send({
-        content: outboundText.length > 0 ? outboundText : undefined,
         embeds,
       });
-    }
-
-    try {
-      await message.delete();
-    } catch (error) {
-      logger.warn(
-        `Could not delete source message ${message.id}. Ensure the bot has Manage Messages permission.`,
-        error
-      );
     }
   });
 

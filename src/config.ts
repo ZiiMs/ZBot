@@ -3,7 +3,10 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 export interface AppConfig {
   discordBotToken: string;
   discordTargetChannelId: string;
+  discordGuildId: string;
   raiderIoAccessKey?: string;
+  recruitmentIntakeUrl: string;
+  recruitmentApiToken: string;
   logLevel: LogLevel;
 }
 
@@ -32,7 +35,10 @@ export function getConfig(): AppConfig {
   return {
     discordBotToken: requireEnv("DISCORD_BOT_TOKEN"),
     discordTargetChannelId: requireEnv("DISCORD_TARGET_CHANNEL_ID"),
+    discordGuildId: requireEnv("DISCORD_GUILD_ID"),
     raiderIoAccessKey: process.env.RAIDERIO_ACCESS_KEY?.trim() || undefined,
+    recruitmentIntakeUrl: requireEnv("RECRUITMENT_INTAKE_URL"),
+    recruitmentApiToken: requireEnv("RECRUITMENT_API_TOKEN"),
     logLevel: parseLogLevel(process.env.LOG_LEVEL),
   };
 }
