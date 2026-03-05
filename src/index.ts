@@ -28,7 +28,8 @@ async function main(): Promise<void> {
       `Processing ${links.length} Raider.IO link(s) from message ${message.id} in channel ${message.channelId}`
     );
 
-    const descriptionText = stripRaiderIoLinksFromText(message.content, links);
+    const outboundText = stripRaiderIoLinksFromText(message.content, links);
+    const embeds = [];
 
     for (const link of links) {
       try {
@@ -40,24 +41,27 @@ async function main(): Promise<void> {
           },
           config.raiderIoAccessKey
         );
-        const embed = buildCharacterEmbed(summary, descriptionText);
+        const embed = buildCharacterEmbed(summary);
         if (summary.thumbnailUrl) {
           embed.setThumbnail(summary.thumbnailUrl);
         }
-        await message.channel.send({ embeds: [embed] });
+        embeds.push(embed);
       } catch (error) {
         logger.warn("Failed to fetch character summary", {
           link: link.cleanedUrl,
           error: error instanceof Error ? error.message : String(error),
         });
 
-        const fallback = buildUnavailableEmbed(
-          link,
-          descriptionText,
-          "Unable to retrieve Raider.IO data right now."
-        );
-        await message.channel.send({ embeds: [fallback] });
+        const fallback = buildUnavailableEmbed(link, "Unable to retrieve Raider.IO data right now.");
+        embeds.push(fallback);
       }
+    }
+
+    if (embeds.length > 0) {
+      await message.channel.send({
+        content: outboundText.length > 0 ? outboundText : undefined,
+        embeds,
+      });
     }
 
     try {

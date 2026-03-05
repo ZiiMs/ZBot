@@ -7,9 +7,10 @@ Discord bot that watches one channel for Raider.IO character links and reposts f
 - Watches only one configured Discord channel
 - Finds one or more Raider.IO character links in a message
 - Creates one embed per character link
-- Uses non-link message text as embed description
-- Shows previous-tier raid progression (Normal/Heroic/Mythic)
-- Shows Mythic+ score for current and previous seasons
+- Posts non-link message text as normal bot message content above the embed(s)
+- Splits output into two sections per category: `Current` and `Previous (Last 3)`
+- Shows `N/A` for raid tiers with zero/no progression
+- Shows `Current` + `Previous 1/2/3` Mythic+ seasons (`N/A` when unavailable)
 - Deletes original message after repost (if permissions allow)
 
 ## Setup
