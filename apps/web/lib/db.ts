@@ -1,7 +1,11 @@
 import { Pool } from "pg";
-import { config } from "@/lib/config";
+
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("Missing required env var: DATABASE_URL");
+}
 
 export const db = new Pool({
-  connectionString: config.databaseUrl,
+  connectionString: databaseUrl,
   max: 10
 });

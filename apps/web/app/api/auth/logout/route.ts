@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { destroySession } from "@/lib/session";
+import { auth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  await destroySession();
+  await auth.api.signOut({
+    headers: req.headers
+  });
   return NextResponse.redirect(new URL("/setup", req.url));
 }
