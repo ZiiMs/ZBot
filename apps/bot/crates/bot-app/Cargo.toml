@@ -1,0 +1,21 @@
+[package]
+name = "bot-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+bot-core = { path = "../bot-core" }
+bot-features = { path = "../bot-features" }
+bot-infra = { path = "../bot-infra" }
+serde.workspace = true
+serenity.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+dotenvy.workspace = true

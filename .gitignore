@@ -1,0 +1,7 @@
+/target
+apps/web/.next
+apps/web/.env.local
+apps/web/node_modules
+*.db
+.env
+.sqlx
