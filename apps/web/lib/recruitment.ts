@@ -29,6 +29,7 @@ export interface CandidateRecord {
   currentRoundNumber: number | null;
   yesVotes: number;
   noVotes: number;
+  myVote: VoteValue | null;
 }
 
 export interface SessionView {
@@ -63,7 +64,17 @@ interface ActiveRoundRow {
   round_number: number;
 }
 
-function mapCandidate(row: CandidateRow, tallyMap: Map<string, { check: number; x: number }>): CandidateRecord {
+interface ViewerVoteRow {
+  candidate_id: string;
+  vote: VoteValue;
+  vote_round_id: string;
+}
+
+function mapCandidate(
+  row: CandidateRow,
+  tallyMap: Map<string, { check: number; x: number }>,
+  viewerVoteMap: Map<string, VoteValue>
+): CandidateRecord {
   const tally = tallyMap.get(row.id) ?? { check: 0, x: 0 };
 
   return {
@@ -80,6 +91,7 @@ function mapCandidate(row: CandidateRow, tallyMap: Map<string, { check: number; 
     currentRoundNumber: row.round_number,
     yesVotes: tally.check,
     noVotes: tally.x,
+    myVote: viewerVoteMap.get(row.id) ?? null,
   };
 }
 
@@ -117,7 +129,47 @@ async function loadCurrentTallies(candidateIds: string[]): Promise<Map<string, {
   return map;
 }
 
-export async function listCandidates(): Promise<CandidateRecord[]> {
+async function loadViewerVotes(
+  candidateRows: CandidateRow[],
+  viewerDiscordId: string
+): Promise<Map<string, VoteValue>> {
+  const activeRoundByCandidate = new Map<string, string>();
+  for (const row of candidateRows) {
+    if (row.round_id) {
+      activeRoundByCandidate.set(row.id, row.round_id);
+    }
+  }
+
+  if (activeRoundByCandidate.size === 0) {
+    return new Map();
+  }
+
+  const candidateIds = Array.from(activeRoundByCandidate.keys());
+  const activeRoundIds = Array.from(new Set(activeRoundByCandidate.values()));
+
+  const votes = await pool.query<ViewerVoteRow>(
+    `
+    SELECT candidate_id, vote, vote_round_id
+    FROM votes
+    WHERE voter_discord_id = $1
+      AND candidate_id = ANY($2::uuid[])
+      AND vote_round_id = ANY($3::uuid[])
+  `,
+    [viewerDiscordId, candidateIds, activeRoundIds]
+  );
+
+  const voteMap = new Map<string, VoteValue>();
+  for (const row of votes.rows) {
+    const activeRoundId = activeRoundByCandidate.get(row.candidate_id);
+    if (activeRoundId && row.vote_round_id === activeRoundId) {
+      voteMap.set(row.candidate_id, row.vote);
+    }
+  }
+
+  return voteMap;
+}
+
+export async function listCandidates(viewerDiscordId?: string): Promise<CandidateRecord[]> {
   await ensureSchema();
 
   const candidates = await pool.query<CandidateRow>(`
@@ -148,8 +200,11 @@ export async function listCandidates(): Promise<CandidateRecord[]> {
 
   const candidateIds = candidates.rows.map((row) => row.id);
   const tallyMap = await loadCurrentTallies(candidateIds);
+  const viewerVoteMap = viewerDiscordId
+    ? await loadViewerVotes(candidates.rows, viewerDiscordId)
+    : new Map<string, VoteValue>();
 
-  return candidates.rows.map((row) => mapCandidate(row, tallyMap));
+  return candidates.rows.map((row) => mapCandidate(row, tallyMap, viewerVoteMap));
 }
 
 function assertVoteValue(value: string): VoteValue {

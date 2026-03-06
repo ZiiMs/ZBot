@@ -4,10 +4,10 @@ import { listCandidates } from "@/lib/recruitment";
 
 export async function GET(request: Request) {
   const permission = await resolvePermissionContext(request.headers);
-  if (!canAccessBoard(permission)) {
+  if (!permission || !canAccessBoard(permission)) {
     return Response.json({ error: "Authentication and role access required." }, { status: 403 });
   }
 
-  const candidates = await listCandidates();
+  const candidates = await listCandidates(permission.discordUserId);
   return Response.json({ candidates });
 }

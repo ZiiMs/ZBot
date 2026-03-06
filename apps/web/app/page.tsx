@@ -21,7 +21,7 @@ export default async function HomePage() {
     );
   }
 
-  const initialCandidates = await listCandidates();
+  const initialCandidates = await listCandidates(permission.discordUserId);
 
   return (
     <BoardClient

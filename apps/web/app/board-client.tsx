@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { authClient } from "@/lib/auth-client";
 
 type CandidateStatus = "voting" | "accepted" | "declined";
+type VoteValue = "check" | "x";
 
 type Candidate = {
   id: string;
@@ -15,6 +16,7 @@ type Candidate = {
   currentRoundNumber: number | null;
   yesVotes: number;
   noVotes: number;
+  myVote: VoteValue | null;
 };
 
 function preserveMarkdownLineBreaks(markdown: string): string {
@@ -97,7 +99,7 @@ export function BoardClient({
   }, [refreshCandidates]);
 
   const castVote = useCallback(
-    async (candidateId: string, vote: "check" | "x") => {
+    async (candidateId: string, vote: VoteValue) => {
       setBusyId(candidateId);
       setError(null);
 
@@ -115,7 +117,17 @@ export function BoardClient({
           throw new Error(payload.error ?? "Unable to submit vote.");
         }
 
-        await refreshCandidates();
+        setCandidates((current) =>
+          current.map((candidate) =>
+            candidate.id === candidateId
+              ? {
+                  ...candidate,
+                  myVote: vote,
+                }
+              : candidate
+          )
+        );
+        await refreshCandidates({ silent: true });
       } catch (voteError) {
         setError(voteError instanceof Error ? voteError.message : "Vote failed.");
       } finally {
@@ -145,6 +157,16 @@ export function BoardClient({
           throw new Error(payload.error ?? "Unable to restart vote.");
         }
 
+        setCandidates((current) =>
+          current.map((candidate) =>
+            candidate.id === candidateId
+              ? {
+                  ...candidate,
+                  myVote: null,
+                }
+              : candidate
+          )
+        );
         await refreshCandidates({ silent: true });
       } catch (restartError) {
         setError(restartError instanceof Error ? restartError.message : "Restart failed.");
@@ -292,9 +314,15 @@ function Column({
         {items.map((candidate) => {
           const isBusy = busyId === candidate.id;
           const votingOpen = candidate.status === "voting";
+          const cardVoteClass =
+            candidate.myVote === "check"
+              ? " card-voted-check"
+              : candidate.myVote === "x"
+                ? " card-voted-x"
+                : "";
 
           return (
-            <article className="card" key={candidate.id}>
+            <article className={`card${cardVoteClass}`} key={candidate.id}>
               <div className="card-head">
                 <span className="badge">Round {candidate.currentRoundNumber ?? "-"}</span>
                 <a className="meta-link" href={candidate.discordMessageUrl} target="_blank" rel="noreferrer">
@@ -314,18 +342,18 @@ function Column({
 
               <div className="vote-row">
                 <button
-                  className="btn btn-ok"
+                  className={`btn btn-ok${candidate.myVote === "check" ? " btn-selected" : ""}`}
                   type="button"
                   onClick={() => onVote(candidate.id, "check")}
-                  disabled={!canVote || !votingOpen || isBusy}
+                  disabled={!canVote || !votingOpen || isBusy || candidate.myVote === "check"}
                 >
                   Checkmark
                 </button>
                 <button
-                  className="btn btn-bad"
+                  className={`btn btn-bad${candidate.myVote === "x" ? " btn-selected" : ""}`}
                   type="button"
                   onClick={() => onVote(candidate.id, "x")}
-                  disabled={!canVote || !votingOpen || isBusy}
+                  disabled={!canVote || !votingOpen || isBusy || candidate.myVote === "x"}
                 >
                   X
                 </button>

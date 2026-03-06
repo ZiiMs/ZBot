@@ -105,6 +105,16 @@ main {
   gap: 0.5rem;
 }
 
+.card-voted-check {
+  background: color-mix(in srgb, #dcfce7 45%, white);
+  border-color: color-mix(in srgb, #22c55e 35%, #d1d5db);
+}
+
+.card-voted-x {
+  background: color-mix(in srgb, #ffe4e6 45%, white);
+  border-color: color-mix(in srgb, #f43f5e 35%, #d1d5db);
+}
+
 .card-head {
   display: flex;
   justify-content: space-between;
@@ -182,6 +192,10 @@ main {
 .btn-delete {
   border-color: color-mix(in srgb, #991b1b 35%, #94a3b8);
   color: #991b1b;
+}
+
+.btn-selected {
+  font-weight: 700;
 }
 
 .vote-pill {
