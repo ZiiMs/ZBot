@@ -115,6 +115,11 @@ main {
   border-color: color-mix(in srgb, #f43f5e 35%, #d1d5db);
 }
 
+.card-voted-maybe {
+  background: color-mix(in srgb, #fef9c3 55%, white);
+  border-color: color-mix(in srgb, #eab308 45%, #d1d5db);
+}
+
 .card-head {
   display: flex;
   justify-content: space-between;
@@ -192,6 +197,11 @@ main {
 .btn-delete {
   border-color: color-mix(in srgb, #991b1b 35%, #94a3b8);
   color: #991b1b;
+}
+
+.btn-maybe {
+  border-color: color-mix(in srgb, #ca8a04 35%, #94a3b8);
+  color: #a16207;
 }
 
 .btn-selected {

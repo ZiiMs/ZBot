@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS votes (
   candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
   vote_round_id UUID NOT NULL REFERENCES vote_rounds(id) ON DELETE CASCADE,
   voter_discord_id TEXT NOT NULL,
-  vote TEXT NOT NULL CHECK (vote IN ('check', 'x')),
+  vote TEXT NOT NULL CHECK (vote IN ('check', 'x', 'maybe')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (candidate_id, vote_round_id, voter_discord_id)

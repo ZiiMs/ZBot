@@ -49,7 +49,7 @@ async function ensureSchemaInternal(): Promise<void> {
       candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
       vote_round_id UUID NOT NULL REFERENCES vote_rounds(id) ON DELETE CASCADE,
       voter_discord_id TEXT NOT NULL,
-      vote TEXT NOT NULL CHECK (vote IN ('check', 'x')),
+      vote TEXT NOT NULL CHECK (vote IN ('check', 'x', 'maybe')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (candidate_id, vote_round_id, voter_discord_id)
@@ -63,6 +63,28 @@ async function ensureSchemaInternal(): Promise<void> {
       metadata_json TEXT NOT NULL DEFAULT '{}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'votes'::regclass
+          AND conname = 'votes_vote_check'
+      ) THEN
+        ALTER TABLE votes DROP CONSTRAINT votes_vote_check;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'votes'::regclass
+          AND conname = 'votes_vote_allowed'
+      ) THEN
+        ALTER TABLE votes
+          ADD CONSTRAINT votes_vote_allowed CHECK (vote IN ('check', 'x', 'maybe'));
+      END IF;
+    END $$;
   `);
 }
 

@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { authClient } from "@/lib/auth-client";
 
 type CandidateStatus = "voting" | "accepted" | "declined";
-type VoteValue = "check" | "x";
+type VoteValue = "check" | "x" | "maybe";
 
 type Candidate = {
   id: string;
@@ -16,6 +16,7 @@ type Candidate = {
   currentRoundNumber: number | null;
   yesVotes: number;
   noVotes: number;
+  maybeVotes: number;
   myVote: VoteValue | null;
 };
 
@@ -300,7 +301,7 @@ function Column({
   busyId: string | null;
   canVote: boolean;
   canModerate: boolean;
-  onVote: (candidateId: string, vote: "check" | "x") => void;
+  onVote: (candidateId: string, vote: VoteValue) => void;
   onRestart: (candidateId: string) => void;
   onDelete: (candidateId: string) => void;
 }) {
@@ -315,11 +316,13 @@ function Column({
           const isBusy = busyId === candidate.id;
           const votingOpen = candidate.status === "voting";
           const cardVoteClass =
-            candidate.myVote === "check"
-              ? " card-voted-check"
-              : candidate.myVote === "x"
-                ? " card-voted-x"
-                : "";
+            candidate.maybeVotes > 0
+              ? " card-voted-maybe"
+              : candidate.myVote === "check"
+                ? " card-voted-check"
+                : candidate.myVote === "x"
+                  ? " card-voted-x"
+                  : "";
 
           return (
             <article className={`card${cardVoteClass}`} key={candidate.id}>
@@ -338,6 +341,7 @@ function Column({
                 <span className="vote-pill">{formatDate(candidate.createdAt)}</span>
                 <span className="vote-pill">Checks: {candidate.yesVotes}</span>
                 <span className="vote-pill">Xs: {candidate.noVotes}</span>
+                <span className="vote-pill">Maybes: {candidate.maybeVotes}</span>
               </div>
 
               <div className="vote-row">
@@ -356,6 +360,14 @@ function Column({
                   disabled={!canVote || !votingOpen || isBusy || candidate.myVote === "x"}
                 >
                   X
+                </button>
+                <button
+                  className={`btn btn-maybe${candidate.myVote === "maybe" ? " btn-selected" : ""}`}
+                  type="button"
+                  onClick={() => onVote(candidate.id, "maybe")}
+                  disabled={!canVote || !votingOpen || isBusy || candidate.myVote === "maybe"}
+                >
+                  Maybe
                 </button>
                 {canModerate ? (
                   <button className="btn" type="button" onClick={() => onRestart(candidate.id)} disabled={isBusy}>

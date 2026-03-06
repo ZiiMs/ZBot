@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { ensureSchema, pool } from "./db";
 
 export type CandidateStatus = "voting" | "accepted" | "declined";
-export type VoteValue = "check" | "x";
+export type VoteValue = "check" | "x" | "maybe";
 
 export interface IntakePayload {
   guildId: string;
@@ -29,6 +29,7 @@ export interface CandidateRecord {
   currentRoundNumber: number | null;
   yesVotes: number;
   noVotes: number;
+  maybeVotes: number;
   myVote: VoteValue | null;
 }
 
@@ -57,6 +58,7 @@ interface VoteTallyRow {
   candidate_id: string;
   check_count: string;
   x_count: string;
+  maybe_count: string;
 }
 
 interface ActiveRoundRow {
@@ -72,10 +74,10 @@ interface ViewerVoteRow {
 
 function mapCandidate(
   row: CandidateRow,
-  tallyMap: Map<string, { check: number; x: number }>,
+  tallyMap: Map<string, { check: number; x: number; maybe: number }>,
   viewerVoteMap: Map<string, VoteValue>
 ): CandidateRecord {
-  const tally = tallyMap.get(row.id) ?? { check: 0, x: 0 };
+  const tally = tallyMap.get(row.id) ?? { check: 0, x: 0, maybe: 0 };
 
   return {
     id: row.id,
@@ -91,11 +93,14 @@ function mapCandidate(
     currentRoundNumber: row.round_number,
     yesVotes: tally.check,
     noVotes: tally.x,
+    maybeVotes: tally.maybe,
     myVote: viewerVoteMap.get(row.id) ?? null,
   };
 }
 
-async function loadCurrentTallies(candidateIds: string[]): Promise<Map<string, { check: number; x: number }>> {
+async function loadCurrentTallies(
+  candidateIds: string[]
+): Promise<Map<string, { check: number; x: number; maybe: number }>> {
   if (candidateIds.length === 0) {
     return new Map();
   }
@@ -105,7 +110,8 @@ async function loadCurrentTallies(candidateIds: string[]): Promise<Map<string, {
     SELECT
       c.id AS candidate_id,
       COALESCE(SUM(CASE WHEN v.vote = 'check' THEN 1 ELSE 0 END), 0) AS check_count,
-      COALESCE(SUM(CASE WHEN v.vote = 'x' THEN 1 ELSE 0 END), 0) AS x_count
+      COALESCE(SUM(CASE WHEN v.vote = 'x' THEN 1 ELSE 0 END), 0) AS x_count,
+      COALESCE(SUM(CASE WHEN v.vote = 'maybe' THEN 1 ELSE 0 END), 0) AS maybe_count
     FROM candidates c
     LEFT JOIN vote_rounds vr
       ON vr.candidate_id = c.id
@@ -119,11 +125,12 @@ async function loadCurrentTallies(candidateIds: string[]): Promise<Map<string, {
     [candidateIds]
   );
 
-  const map = new Map<string, { check: number; x: number }>();
+  const map = new Map<string, { check: number; x: number; maybe: number }>();
   for (const row of tallies.rows) {
     map.set(row.candidate_id, {
       check: Number.parseInt(row.check_count, 10) || 0,
       x: Number.parseInt(row.x_count, 10) || 0,
+      maybe: Number.parseInt(row.maybe_count, 10) || 0,
     });
   }
   return map;
@@ -208,7 +215,7 @@ export async function listCandidates(viewerDiscordId?: string): Promise<Candidat
 }
 
 function assertVoteValue(value: string): VoteValue {
-  if (value === "check" || value === "x") {
+  if (value === "check" || value === "x" || value === "maybe") {
     return value;
   }
   throw new Error("Invalid vote value.");
@@ -373,11 +380,12 @@ export async function castVote(candidateId: string, voterDiscordId: string, rawV
       vote,
     });
 
-    const tallyResult = await client.query<{ check_count: string; x_count: string }>(
+    const tallyResult = await client.query<{ check_count: string; x_count: string; maybe_count: string }>(
       `
       SELECT
         COALESCE(SUM(CASE WHEN vote = 'check' THEN 1 ELSE 0 END), 0) AS check_count,
-        COALESCE(SUM(CASE WHEN vote = 'x' THEN 1 ELSE 0 END), 0) AS x_count
+        COALESCE(SUM(CASE WHEN vote = 'x' THEN 1 ELSE 0 END), 0) AS x_count,
+        COALESCE(SUM(CASE WHEN vote = 'maybe' THEN 1 ELSE 0 END), 0) AS maybe_count
       FROM votes
       WHERE candidate_id = $1
         AND vote_round_id = $2
@@ -387,11 +395,12 @@ export async function castVote(candidateId: string, voterDiscordId: string, rawV
 
     const checkCount = Number.parseInt(tallyResult.rows[0]?.check_count ?? "0", 10) || 0;
     const xCount = Number.parseInt(tallyResult.rows[0]?.x_count ?? "0", 10) || 0;
+    const maybeCount = Number.parseInt(tallyResult.rows[0]?.maybe_count ?? "0", 10) || 0;
 
     let finalStatus: CandidateStatus | null = null;
     if (xCount >= 1) {
       finalStatus = "declined";
-    } else if (checkCount >= 3) {
+    } else if (checkCount >= 2) {
       finalStatus = "accepted";
     }
 
@@ -417,11 +426,12 @@ export async function castVote(candidateId: string, voterDiscordId: string, rawV
       );
 
       await insertAuditEvent(client, candidateId, voterDiscordId, "candidate_finalized", {
-        roundNumber: activeRound.round_number,
-        status: finalStatus,
-        checkCount,
-        xCount,
-      });
+          roundNumber: activeRound.round_number,
+          status: finalStatus,
+          checkCount,
+          xCount,
+          maybeCount,
+        });
     }
 
     await client.query("COMMIT");
